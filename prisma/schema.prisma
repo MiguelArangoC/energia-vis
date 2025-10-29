@@ -1,14 +1,165 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// prisma/schema.prisma
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Modelo de Usuario
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  password      String
+  address       String?
+  phone         String?
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  saldo         Saldo?
+  consumos      Consumo[]
+  recargas      Recarga[]
+  suscripcion   Suscripcion?
+  progresoLecciones ProgresoLeccion[]
+  
+  @@map("users")
+}
+
+model Saldo {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  saldoActual   Int       @default(0)
+  ultimaRecarga DateTime?
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  @@map("saldos")
+}
+
+model Consumo {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  fecha         DateTime  @default(now())
+  kwh           Float
+  costo         Int
+  
+  horaInicio    DateTime?
+  horaFin       DateTime?
+  
+  createdAt     DateTime  @default(now())
+  
+  @@map("consumos")
+  @@index([userId, fecha])
+}
+
+model Recarga {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  monto         Int
+  metodoPago    String
+  estado        EstadoRecarga @default(PENDIENTE)
+  
+  transaccionId String?   @unique
+  referencia    String?
+  
+  fechaRecarga  DateTime  @default(now())
+  fechaAprobacion DateTime?
+  
+  @@map("recargas")
+  @@index([userId, fechaRecarga])
+}
+
+enum EstadoRecarga {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+  CANCELADA
+}
+
+model Suscripcion {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  tipo          TipoSuscripcion @default(BASICA)
+  precio        Int
+  fechaInicio   DateTime  @default(now())
+  fechaVencimiento DateTime
+  activa        Boolean   @default(true)
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  @@map("suscripciones")
+}
+
+enum TipoSuscripcion {
+  BASICA
+  PREMIUM
+  EMPRESARIAL
+}
+
+model Leccion {
+  id            String    @id @default(cuid())
+  titulo        String
+  descripcion   String
+  contenido     String    @db.Text
+  puntos        Int
+  
+  duracionMin   Int
+  categoria     String
+  orden         Int       @default(0)
+  
+  activa        Boolean   @default(true)
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  progresos     ProgresoLeccion[]
+  
+  @@map("lecciones")
+}
+
+model ProgresoLeccion {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  leccionId     String
+  leccion       Leccion   @relation(fields: [leccionId], references: [id], onDelete: Cascade)
+  
+  completada    Boolean   @default(false)
+  fechaInicio   DateTime  @default(now())
+  fechaCompletado DateTime?
+  
+  puntosGanados Int       @default(0)
+  
+  @@unique([userId, leccionId])
+  @@map("progreso_lecciones")
+  @@index([userId])
+}
+
+model Puntos {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  
+  puntosTotal   Int       @default(0)
+  nivel         Int       @default(1)
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  @@map("puntos")
 }
